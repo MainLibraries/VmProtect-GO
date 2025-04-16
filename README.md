@@ -40,11 +40,8 @@ import (
 
 func main() {
     // Get hardware ID (HWID)
-    hwid, err := vmprotect.GetHWID()
-    if err != nil {
-        fmt.Printf("Error getting HWID: %v\n", err)
-        return
-    }
+    hwid := vmprotect.GetCurrentHWID()
+    // Note: GetCurrentHWID does not return an error.
     
     fmt.Printf("Hardware ID: %s\n", hwid)
 }
@@ -73,7 +70,7 @@ func main() {
     fmt.Printf("Secret value: %d\n", secretValue)
     
     // End virtualized section
-    vmprotect.EndVirtualization()
+    vmprotect.End()
     
     fmt.Println("Back to regular execution...")
 }
@@ -98,13 +95,13 @@ import (
 
 func main() {
     // Start virtualized section with mutation
-    vmprotect.BeginVirtualizationWithMutation("LicenseCheck")
+    vmprotect.BeginMutation("LicenseCheck")
     
     // Protected license checking code
     isValid := checkLicense("LICENSE-KEY-123")
     
     // End virtualized section
-    vmprotect.EndVirtualization()
+    vmprotect.End()
     
     if isValid {
         fmt.Println("License is valid!")
@@ -131,23 +128,33 @@ import (
 
 func main() {
     // Get hardware ID for this machine
-    hwid, _ := vmprotect.GetHWID()
+    hwid := vmprotect.GetCurrentHWID()
+    fmt.Printf("Current HWID: %s\n", hwid) // Optional: Print HWID for debugging
     
     // Set the VMProtect serial number (license key)
-    err := vmprotect.SetSerialNumber("YOUR-LICENSE-KEY")
-    if err != nil {
-        fmt.Printf("Error setting serial number: %v\n", err)
+    // SetSerialNumber returns an int status, 0 usually means success.
+    status := vmprotect.SetSerialNumber("YOUR-LICENSE-KEY")
+    if status != 0 { // Or check against specific error codes if available
+        fmt.Printf("Error setting serial number, status: %d\n", status)
         return
     }
     
-    // Check if the license is valid for this HWID
-    isValid := vmprotect.IsSerialNumberValid()
+    // Check if the license is valid
+    state := vmprotect.GetSerialNumberState()
     
-    if isValid {
+    if state == vmprotect.SerialStateSuccess {
         fmt.Println("License is valid! Starting application...")
+        // You can also retrieve detailed serial number data if needed:
+        // data, ok := vmprotect.GetSerialNumberData()
+        // if ok {
+        //     fmt.Printf("License User: %s, Expires: %d-%d-%d\n", data.UserName, data.ExpireDate.Year, data.ExpireDate.Month, data.ExpireDate.Day)
+        // }
         // Continue with your application logic
     } else {
-        fmt.Println("Invalid license! Please purchase a valid license.")
+        fmt.Printf("Invalid license! State: %d. Please purchase a valid license.\n", state)
+        // You might want to print more specific error messages based on the state flags, e.g.:
+        // if state&vmprotect.SerialStateFlagDateExpired != 0 { fmt.Println("License has expired.") }
+        // if state&vmprotect.SerialStateFlagBadHWID != 0 { fmt.Println("License is for a different hardware.") }
         return
     }
 }
